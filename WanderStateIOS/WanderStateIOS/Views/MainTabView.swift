@@ -1,0 +1,44 @@
+//
+//  MainTabView.swift
+//  WanderStateIOS
+//
+//  Created by user946723 on 1/28/26.
+//
+
+import SwiftUI
+
+struct MainTabView: View {
+    @State private var selectedTab = 0
+
+    var body: some View {
+        TabView(selection: $selectedTab) {
+            MapScreen()
+                .tabItem {
+                    Label("Map", systemImage: "map.fill")
+                }
+                .tag(0)
+
+            GalleryScreen()
+                .tabItem {
+                    Label("Gallery", systemImage: "photo.on.rectangle")
+                }
+                .tag(1)
+
+            StatsScreen()
+                .tabItem {
+                    Label("Stats", systemImage: "chart.bar.fill")
+                }
+                .tag(2)
+
+            SettingsScreen()
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape.fill")
+                }
+                .tag(3)
+        }
+    }
+}
+
+#Preview {
+    MainTabView()
+}
