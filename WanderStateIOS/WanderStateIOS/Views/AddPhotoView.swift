@@ -6,11 +6,13 @@
 //
 
 import SwiftUI
+import SwiftData
 import PhotosUI
 
 struct AddPhotoView: View {
     let stateCode: String
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
 
     // Form state
     @State private var capturedImage: UIImage?
@@ -21,6 +23,10 @@ struct AddPhotoView: View {
     @State private var showCamera = false
     @State private var showPhotoLibrary = false
     @State private var showImageSourcePicker = false
+
+    // Error handling
+    @State private var showErrorAlert = false
+    @State private var errorMessage = ""
 
     // Get state name from code
     private var stateName: String {
@@ -135,19 +141,80 @@ struct AddPhotoView: View {
             .sheet(isPresented: $showPhotoLibrary) {
                 PhotoLibraryPicker(image: $capturedImage)
             }
+            .alert("Error Saving Photo", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
+            }
         }
     }
 
     private func savePhoto() {
-        // TODO: Save to SwiftData
-        print("Photo saved for \(stateCode) - \(stateName)")
-        if !cityName.isEmpty {
-            print("  City: \(cityName)")
+        guard let image = capturedImage else { return }
+
+        do {
+            // Save image to Documents directory
+            let photoId = UUID()
+            let fileName = "\(photoId.uuidString).jpg"
+            let fileURL = try saveImageToDocuments(image: image, fileName: fileName)
+
+            // Create PhotoEntity
+            let photoEntity = PhotoEntity(
+                id: photoId,
+                uri: fileURL.path,
+                stateCode: stateCode,
+                stateName: stateName,
+                cityName: cityName,
+                latitude: 0.0,
+                longitude: 0.0,
+                capturedDate: Date(),
+                addedDate: Date(),
+                thumbnailUri: ""
+            )
+
+            // Insert into SwiftData
+            modelContext.insert(photoEntity)
+
+            // If journal entry is provided, create JournalEntryEntity
+            if !journalEntry.isEmpty {
+                let journal = JournalEntryEntity(
+                    photoId: photoId,
+                    entryText: journalEntry
+                )
+                journal.photo = photoEntity
+                modelContext.insert(journal)
+            }
+
+            // Save context
+            try modelContext.save()
+
+            print("Photo saved successfully for \(stateCode) - \(stateName)")
+            dismiss()
+
+        } catch {
+            errorMessage = error.localizedDescription
+            showErrorAlert = true
+            print("Error saving photo: \(error)")
         }
-        if !journalEntry.isEmpty {
-            print("  Journal: \(journalEntry.prefix(50))...")
+    }
+
+    private func saveImageToDocuments(image: UIImage, fileName: String) throws -> URL {
+        guard let data = image.jpegData(compressionQuality: 0.8) else {
+            throw NSError(domain: "AddPhotoView", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to convert image to JPEG"])
         }
-        dismiss()
+
+        let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let photosDirectory = documentsDirectory.appendingPathComponent("Photos", isDirectory: true)
+
+        // Create Photos directory if it doesn't exist
+        if !FileManager.default.fileExists(atPath: photosDirectory.path) {
+            try FileManager.default.createDirectory(at: photosDirectory, withIntermediateDirectories: true)
+        }
+
+        let fileURL = photosDirectory.appendingPathComponent(fileName)
+        try data.write(to: fileURL)
+
+        return fileURL
     }
 }
 

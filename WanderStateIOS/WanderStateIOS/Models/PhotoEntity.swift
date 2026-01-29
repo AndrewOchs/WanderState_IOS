@@ -10,7 +10,7 @@ import SwiftData
 
 @Model
 final class PhotoEntity {
-    @Attribute(.unique) var id: UUID
+    var id: UUID
     var uri: String
     var stateCode: String
     var stateName: String

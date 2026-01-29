@@ -6,11 +6,17 @@
 //
 
 import SwiftUI
+import SwiftData
 
 // MARK: - US Map View
 
 struct UsMapView: View {
-    @State private var states: [StateInfo]
+    // SwiftData query for photos
+    @Query(sort: \PhotoEntity.addedDate, order: .reverse) private var photos: [PhotoEntity]
+
+    // Theme manager for dynamic colors
+    @State private var themeManager = ThemeManager.shared
+
     @State private var selectedState: StateInfo?
     @State private var showStatePopup: Bool = false
     @State private var showAddPhotoSheet: Bool = false
@@ -25,8 +31,16 @@ struct UsMapView: View {
     private let viewBoxWidth: CGFloat = 959
     private let viewBoxHeight: CGFloat = 593
 
-    init(states: [StateInfo]? = nil) {
-        _states = State(initialValue: states ?? StatePathData.allStates)
+    // Compute states with photo counts from SwiftData
+    private var statesWithPhotoCounts: [StateInfo] {
+        let photoCounts = Dictionary(grouping: photos, by: { $0.stateCode })
+            .mapValues { $0.count }
+
+        return StatePathData.allStates.map { state in
+            var updatedState = state
+            updatedState.photoCount = photoCounts[state.id] ?? 0
+            return updatedState
+        }
     }
 
     var body: some View {
@@ -52,7 +66,7 @@ struct UsMapView: View {
 
                 // Map container - centered in available space
                 ZStack {
-                    ForEach(states) { state in
+                    ForEach(statesWithPhotoCounts) { state in
                         stateShape(for: state, mapWidth: mapWidth, mapHeight: mapHeight)
                     }
                 }
@@ -72,8 +86,10 @@ struct UsMapView: View {
 
                 // State name popup - positioned at top with safe area consideration
                 if showStatePopup, let state = selectedState {
+                    // Get current photo count from statesWithPhotoCounts
+                    let currentPhotoCount = photoCount(for: state.id)
                     VStack {
-                        statePopup(for: state)
+                        statePopup(for: state, photoCount: currentPhotoCount)
                             .padding(.top, 8)
                         Spacer()
                     }
@@ -120,9 +136,15 @@ struct UsMapView: View {
         }
     }
 
+    // MARK: - Photo Count Helper
+
+    private func photoCount(for stateCode: String) -> Int {
+        photos.filter { $0.stateCode == stateCode }.count
+    }
+
     // MARK: - Popup View
 
-    private func statePopup(for state: StateInfo) -> some View {
+    private func statePopup(for state: StateInfo, photoCount: Int) -> some View {
         VStack(spacing: 10) {
             Text(state.name)
                 .font(.system(size: 18, weight: .bold))
@@ -132,7 +154,7 @@ struct UsMapView: View {
                 Image(systemName: "photo.fill")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
-                Text("\(state.photoCount) photo\(state.photoCount == 1 ? "" : "s")")
+                Text("\(photoCount) photo\(photoCount == 1 ? "" : "s")")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
             }
@@ -149,7 +171,7 @@ struct UsMapView: View {
                 .foregroundColor(.white)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
-                .background(Color.blue)
+                .background(themeManager.primary)
                 .cornerRadius(20)
             }
         }
@@ -207,15 +229,16 @@ struct UsMapView: View {
     }
 
     private func fillColor(for photoCount: Int) -> Color {
+        let theme = themeManager.currentTheme
         switch photoCount {
         case 0:
-            return Color(hex: "CCCCCC")  // Gray - not visited
+            return theme.stateUnvisited  // Gray - not visited
         case 1...10:
-            return Color(hex: "90EE90")  // Light green
+            return theme.stateVisitedLight  // Light shade
         case 11...25:
-            return Color(hex: "32CD32")  // Medium green
+            return theme.stateVisitedMedium  // Medium shade
         default:
-            return Color(hex: "228B22")  // Dark green
+            return theme.stateVisitedDark  // Dark shade
         }
     }
 }

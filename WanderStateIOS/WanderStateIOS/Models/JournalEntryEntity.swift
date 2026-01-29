@@ -10,7 +10,7 @@ import SwiftData
 
 @Model
 final class JournalEntryEntity {
-    @Attribute(.unique) var id: UUID
+    var id: UUID
     var photoId: UUID
     var entryText: String
     var createdDate: Date
