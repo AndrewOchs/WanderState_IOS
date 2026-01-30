@@ -20,6 +20,7 @@ struct UsMapView: View {
     @State private var selectedState: StateInfo?
     @State private var showStatePopup: Bool = false
     @State private var showAddPhotoSheet: Bool = false
+    @State private var showStateSelector: Bool = false
 
     // Zoom and pan state
     @State private var scale: CGFloat = 1.0
@@ -43,12 +44,24 @@ struct UsMapView: View {
         }
     }
 
+    // Stats computed properties
+    private var statesVisitedCount: Int {
+        Set(photos.map { $0.stateCode }).count
+    }
+
+    private var totalPhotosCount: Int {
+        photos.count
+    }
+
     var body: some View {
         GeometryReader { geometry in
-            // Add minimal padding so map fills most of the screen
+            // Reserve space for header and legend
+            let headerHeight: CGFloat = 95
+            let legendHeight: CGFloat = 80
             let padding: CGFloat = 12
+
             let availableWidth = geometry.size.width - (padding * 2)
-            let availableHeight = geometry.size.height - (padding * 2)
+            let availableHeight = geometry.size.height - headerHeight - legendHeight - (padding * 2)
 
             // Calculate scale to fit map in available space (aspect-fit)
             let fitScale = min(
@@ -61,37 +74,104 @@ struct UsMapView: View {
             let mapHeight = viewBoxHeight * fitScale * scale
 
             ZStack {
-                Color(UIColor.systemGroupedBackground)
+                themeManager.background
                     .ignoresSafeArea()
 
-                // Map container - centered in available space
-                ZStack {
-                    ForEach(statesWithPhotoCounts) { state in
-                        stateShape(for: state, mapWidth: mapWidth, mapHeight: mapHeight)
+                VStack(spacing: 0) {
+                    // MARK: - Header Card
+                    VStack(spacing: 6) {
+                        // Title with compass icons
+                        HStack(spacing: 10) {
+                            Image(systemName: "safari.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(themeManager.accent)
+
+                            Text("My WanderState Map")
+                                .font(.system(size: 22, weight: .bold))
+                                .foregroundColor(themeManager.primary)
+
+                            Image(systemName: "safari.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(themeManager.accent)
+                        }
+
+                        // Stats line
+                        Text("\(statesVisitedCount) states visited • \(totalPhotosCount) total photos")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.secondary)
                     }
-                }
-                .frame(width: mapWidth, height: mapHeight)
-                .position(
-                    x: geometry.size.width / 2 + offset.width,
-                    y: geometry.size.height / 2 + offset.height
-                )
-                .gesture(dragGesture)
-                .gesture(magnificationGesture)
-                .onTapGesture {
-                    withAnimation {
-                        showStatePopup = false
-                        selectedState = nil
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(themeManager.cardBackground)
+                            .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(themeManager.primary.opacity(0.1), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 8)
+
+                    // MARK: - Map Container
+                    ZStack {
+                        // Map content
+                        ZStack {
+                            ForEach(statesWithPhotoCounts) { state in
+                                stateShape(for: state, mapWidth: mapWidth, mapHeight: mapHeight)
+                            }
+                        }
+                        .frame(width: mapWidth, height: mapHeight)
+                        .position(
+                            x: availableWidth / 2 + padding + offset.width,
+                            y: availableHeight / 2 + offset.height
+                        )
+                        .gesture(dragGesture)
+                        .gesture(magnificationGesture)
+                        .onTapGesture {
+                            withAnimation {
+                                showStatePopup = false
+                                selectedState = nil
+                            }
+                        }
+
+                        // State popup overlay
+                        if showStatePopup, let state = selectedState {
+                            let currentPhotoCount = photoCount(for: state.id)
+                            VStack {
+                                statePopup(for: state, photoCount: currentPhotoCount)
+                                    .padding(.top, 8)
+                                Spacer()
+                            }
+                        }
                     }
+                    .frame(height: availableHeight)
+
+                    // MARK: - Color Legend
+                    colorLegend
+                        .frame(height: legendHeight)
                 }
 
-                // State name popup - positioned at top with safe area consideration
-                if showStatePopup, let state = selectedState {
-                    // Get current photo count from statesWithPhotoCounts
-                    let currentPhotoCount = photoCount(for: state.id)
-                    VStack {
-                        statePopup(for: state, photoCount: currentPhotoCount)
-                            .padding(.top, 8)
+                // MARK: - Floating Camera Button
+                VStack {
+                    Spacer()
+                    HStack {
                         Spacer()
+                        Button(action: {
+                            showStateSelector = true
+                        }) {
+                            Image(systemName: "camera.fill")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(width: 56, height: 56)
+                                .background(themeManager.accent)
+                                .clipShape(Circle())
+                                .shadow(color: themeManager.accent.opacity(0.4), radius: 8, x: 0, y: 4)
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, legendHeight + 20)
                     }
                 }
             }
@@ -100,6 +180,57 @@ struct UsMapView: View {
                     AddPhotoView(stateCode: state.stateCode)
                 }
             }
+            .sheet(isPresented: $showStateSelector) {
+                StateSelectorSheet(
+                    states: statesWithPhotoCounts,
+                    themeManager: themeManager
+                ) { state in
+                    selectedState = state
+                    showStateSelector = false
+                    showAddPhotoSheet = true
+                }
+            }
+        }
+    }
+
+    // MARK: - Color Legend View
+
+    private var colorLegend: some View {
+        VStack(spacing: 8) {
+            Text("Photo Count")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 16) {
+                legendItem(color: themeManager.currentTheme.stateUnvisited, label: "0")
+                legendItem(color: themeManager.currentTheme.stateVisitedLight, label: "1-10")
+                legendItem(color: themeManager.currentTheme.stateVisitedMedium, label: "11-25")
+                legendItem(color: themeManager.currentTheme.stateVisitedDark, label: "25+")
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(themeManager.cardBackground)
+                .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        )
+        .padding(.horizontal, 16)
+    }
+
+    private func legendItem(color: Color, label: String) -> some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(color)
+                .frame(width: 20, height: 20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(Color.white, lineWidth: 1)
+                )
+
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.primary)
         }
     }
 
@@ -121,13 +252,13 @@ struct UsMapView: View {
                     .fill(color)
             }
 
-            // Stroke overlay
+            // Stroke overlay - uses theme background for subtle borders
             ScaledStateShape(pathData: state.pathData, viewBoxWidth: viewBoxWidth, viewBoxHeight: viewBoxHeight)
-                .stroke(isSelected ? Color.blue : Color.white, lineWidth: isSelected ? 2 : 0.75)
+                .stroke(isSelected ? themeManager.primary : themeManager.background, lineWidth: isSelected ? 2.5 : 0.75)
 
             ForEach(state.additionalPaths.indices, id: \.self) { index in
                 ScaledStateShape(pathData: state.additionalPaths[index], viewBoxWidth: viewBoxWidth, viewBoxHeight: viewBoxHeight)
-                    .stroke(isSelected ? Color.blue : Color.white, lineWidth: isSelected ? 2 : 0.75)
+                    .stroke(isSelected ? themeManager.primary : themeManager.background, lineWidth: isSelected ? 2.5 : 0.75)
             }
         }
         .contentShape(ScaledStateShape(pathData: state.pathData, viewBoxWidth: viewBoxWidth, viewBoxHeight: viewBoxHeight))
@@ -145,46 +276,73 @@ struct UsMapView: View {
     // MARK: - Popup View
 
     private func statePopup(for state: StateInfo, photoCount: Int) -> some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 12) {
+            // State name with themed color
             Text(state.name)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(.primary)
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(themeManager.primary)
 
-            HStack(spacing: 4) {
+            // Photo count
+            HStack(spacing: 6) {
                 Image(systemName: "photo.fill")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 13))
+                    .foregroundColor(themeManager.secondary)
                 Text("\(photoCount) photo\(photoCount == 1 ? "" : "s")")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
             }
 
+            // Full-width Add Photo button (Android style)
             Button(action: {
                 showAddPhotoSheet = true
             }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 14))
+                HStack(spacing: 8) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 16))
                     Text("Add Photo")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                 }
                 .foregroundColor(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
                 .background(themeManager.primary)
-                .cornerRadius(20)
+                .cornerRadius(24)
+            }
+            .padding(.top, 4)
+
+            // View Photos button (if there are photos)
+            if photoCount > 0 {
+                Button(action: {
+                    // Navigate to gallery filtered by this state
+                    showStatePopup = false
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.system(size: 16))
+                        Text("View WanderStates")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(themeManager.primary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 24)
+                            .stroke(themeManager.primary, lineWidth: 2)
+                    )
+                }
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 18)
+        .frame(width: 280)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color(UIColor.secondarySystemGroupedBackground))
-                .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 6)
+            RoundedRectangle(cornerRadius: 20)
+                .fill(themeManager.cardBackground)
+                .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color(UIColor.separator).opacity(0.3), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(themeManager.primary.opacity(0.15), lineWidth: 1)
         )
         .transition(.scale.combined(with: .opacity))
     }
@@ -624,6 +782,67 @@ extension Color {
             blue: Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+}
+
+// MARK: - State Selector Sheet
+
+struct StateSelectorSheet: View {
+    let states: [StateInfo]
+    let themeManager: ThemeManager
+    let onStateSelected: (StateInfo) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var searchText = ""
+
+    private var filteredStates: [StateInfo] {
+        if searchText.isEmpty {
+            return states.sorted { $0.name < $1.name }
+        }
+        return states
+            .filter { $0.name.localizedCaseInsensitiveContains(searchText) ||
+                      $0.id.localizedCaseInsensitiveContains(searchText) }
+            .sorted { $0.name < $1.name }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(filteredStates) { state in
+                    Button(action: {
+                        onStateSelected(state)
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(state.name)
+                                    .font(.body)
+                                    .foregroundColor(.primary)
+
+                                Text("\(state.photoCount) photo\(state.photoCount == 1 ? "" : "s")")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            Image(systemName: "camera.fill")
+                                .foregroundColor(themeManager.primary)
+                        }
+                    }
+                }
+            }
+            .searchable(text: $searchText, prompt: "Search states")
+            .navigationTitle("Select a State")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

@@ -82,12 +82,33 @@ enum ColorTheme: String, CaseIterable, Identifiable {
         }
     }
 
+    // Main screen background - subtle, warm tones
     var background: Color {
         switch self {
-        case .vintageGreen: return Color(hex: "F1F8E9")  // Light green tint
-        case .oceanBlue: return Color(hex: "E3F2FD")     // Light blue tint
-        case .sunsetOrange: return Color(hex: "FFF3E0")  // Light orange tint
-        case .rosewoodPink: return Color(hex: "FCE4EC")  // Light pink tint
+        case .vintageGreen: return Color(hex: "F5F1E8")  // Warm tan/beige
+        case .oceanBlue: return Color(hex: "E8F4F8")     // Soft blue-gray
+        case .sunsetOrange: return Color(hex: "FFF5E8")  // Light peach/cream
+        case .rosewoodPink: return Color(hex: "FFF0F5")  // Very light pink (lavender blush)
+        }
+    }
+
+    // Card/surface background - slightly lighter than background
+    var cardBackground: Color {
+        switch self {
+        case .vintageGreen: return Color(hex: "FDFCF9")  // Off-white with warm tint
+        case .oceanBlue: return Color(hex: "F5FAFC")     // Very light blue-white
+        case .sunsetOrange: return Color(hex: "FFFCF8")  // Cream white
+        case .rosewoodPink: return Color(hex: "FFFBFC")  // Almost white with pink tint
+        }
+    }
+
+    // Tertiary background for nested elements
+    var tertiaryBackground: Color {
+        switch self {
+        case .vintageGreen: return Color(hex: "EDE8DC")  // Slightly darker tan
+        case .oceanBlue: return Color(hex: "DCE8EC")     // Muted blue-gray
+        case .sunsetOrange: return Color(hex: "F5E8D8")  // Muted peach
+        case .rosewoodPink: return Color(hex: "F5E8EC")  // Muted pink
         }
     }
 
@@ -164,6 +185,8 @@ class ThemeManager {
     var secondary: Color { currentTheme.secondary }
     var accent: Color { currentTheme.accent }
     var background: Color { currentTheme.background }
+    var cardBackground: Color { currentTheme.cardBackground }
+    var tertiaryBackground: Color { currentTheme.tertiaryBackground }
     var surface: Color { currentTheme.surface }
 }
 

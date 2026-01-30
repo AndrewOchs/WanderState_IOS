@@ -6,172 +6,301 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct SettingsScreen: View {
     @State private var themeManager = ThemeManager.shared
+    @Query private var photos: [PhotoEntity]
 
-    var body: some View {
-        NavigationStack {
-            List {
-                // MARK: - Color Theme Section
-                Section {
-                    ForEach(ColorTheme.allCases) { theme in
-                        ThemeOptionRow(
-                            theme: theme,
-                            isSelected: themeManager.currentTheme == theme
-                        ) {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                themeManager.currentTheme = theme
-                            }
-                        }
-                    }
-                } header: {
-                    Text("Color Theme")
-                } footer: {
-                    Text("Choose a color theme for the app")
-                }
+    @State private var showClearDataAlert = false
+    @State private var showExportSheet = false
 
-                // MARK: - Data Management Section
-                Section {
-                    NavigationLink {
-                        DataManagementView()
-                    } label: {
-                        Label("Data Management", systemImage: "externaldrive")
-                    }
-                } header: {
-                    Text("Storage")
-                }
-
-                // MARK: - About Section
-                Section {
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.secondary)
-                    }
-
-                    HStack {
-                        Text("Build")
-                        Spacer()
-                        Text("1")
-                            .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text("About")
-                }
-            }
-            .navigationTitle("Settings")
-        }
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
-}
 
-// MARK: - Theme Option Row
-
-struct ThemeOptionRow: View {
-    let theme: ColorTheme
-    let isSelected: Bool
-    let onSelect: () -> Void
-
-    var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // Color swatches
-                HStack(spacing: 4) {
-                    ForEach(theme.swatchColors, id: \.self) { color in
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(color)
-                            .frame(width: 24, height: 24)
-                    }
-                }
-                .padding(4)
-                .background(Color(UIColor.systemGray6))
-                .cornerRadius(8)
-
-                // Theme info
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(theme.displayName)
-                        .font(.body)
-                        .foregroundColor(.primary)
-                    Text(theme.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Spacer()
-
-                // Selection indicator
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(theme.primary)
-                        .font(.title2)
-                }
-            }
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
-}
-
-// MARK: - Data Management View
-
-struct DataManagementView: View {
-    @State private var showingClearAlert = false
-    @State private var photoCount: Int = 0
 
     var body: some View {
-        List {
-            Section {
-                HStack {
-                    Text("Photos")
-                    Spacer()
-                    Text("\(photoCount)")
-                        .foregroundColor(.secondary)
-                }
+        ZStack {
+            themeManager.background
+                .ignoresSafeArea()
 
-                HStack {
-                    Text("Storage Used")
-                    Spacer()
-                    Text(calculateStorageUsed())
-                        .foregroundColor(.secondary)
-                }
-            } header: {
-                Text("Statistics")
-            }
+            ScrollView {
+                VStack(spacing: 20) {
+                    // MARK: - App Logo Header
+                    appLogoHeader
 
-            Section {
-                Button(role: .destructive) {
-                    showingClearAlert = true
-                } label: {
-                    Label("Clear All Data", systemImage: "trash")
+                    // MARK: - Color Theme Section
+                    themeSection
+
+                    // MARK: - Data Management Section
+                    dataManagementSection
+
+                    // MARK: - About Section
+                    aboutSection
+
+                    // MARK: - Footer
+                    footerView
                 }
-            } header: {
-                Text("Reset")
-            } footer: {
-                Text("This will permanently delete all photos and journal entries")
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
             }
         }
-        .navigationTitle("Data Management")
-        .navigationBarTitleDisplayMode(.inline)
-        .alert("Clear All Data?", isPresented: $showingClearAlert) {
+        .navigationBarHidden(true)
+        .alert("Clear All Data?", isPresented: $showClearDataAlert) {
             Button("Cancel", role: .cancel) { }
-            Button("Clear", role: .destructive) {
+            Button("Clear Everything", role: .destructive) {
                 clearAllData()
             }
         } message: {
-            Text("This action cannot be undone. All your photos and journal entries will be permanently deleted.")
+            Text("This will permanently delete all \(photos.count) photos and their journal entries. This action cannot be undone.")
         }
-        .onAppear {
-            updateStats()
+        .sheet(isPresented: $showExportSheet) {
+            ExportDataView(photos: photos, themeManager: themeManager)
         }
     }
+
+    // MARK: - App Logo Header
+
+    private var appLogoHeader: some View {
+        VStack(spacing: 12) {
+            // App Icon
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [themeManager.primaryLight, themeManager.primary],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 80, height: 80)
+                    .shadow(color: themeManager.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+
+                Image(systemName: "map.fill")
+                    .font(.system(size: 36))
+                    .foregroundColor(.white)
+            }
+
+            Text("WanderState")
+                .font(.system(size: 24, weight: .bold))
+                .foregroundColor(themeManager.primary)
+
+            Text("Settings")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 20)
+    }
+
+    // MARK: - Theme Section
+
+    private var themeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section Header
+            HStack {
+                Image(systemName: "paintpalette.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(themeManager.primary)
+
+                Text("Color Theme")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(themeManager.primary)
+            }
+            .padding(.horizontal, 4)
+
+            // Theme Cards
+            VStack(spacing: 8) {
+                ForEach(ColorTheme.allCases) { theme in
+                    ThemeCard(
+                        theme: theme,
+                        isSelected: themeManager.currentTheme == theme,
+                        themeManager: themeManager
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            themeManager.currentTheme = theme
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(themeManager.cardBackground)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+    }
+
+    // MARK: - Data Management Section
+
+    private var dataManagementSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section Header
+            HStack {
+                Image(systemName: "externaldrive.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(themeManager.secondary)
+
+                Text("Data Management")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(themeManager.secondary)
+            }
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                // Storage Info
+                SettingsRow(
+                    icon: "photo.stack.fill",
+                    iconColor: themeManager.primary,
+                    title: "Photos Stored",
+                    value: "\(photos.count)"
+                )
+
+                Divider()
+                    .padding(.leading, 52)
+
+                SettingsRow(
+                    icon: "internaldrive.fill",
+                    iconColor: themeManager.secondary,
+                    title: "Storage Used",
+                    value: calculateStorageUsed()
+                )
+
+                Divider()
+                    .padding(.leading, 52)
+
+                // Export Data Button
+                Button(action: { showExportSheet = true }) {
+                    SettingsRow(
+                        icon: "square.and.arrow.up.fill",
+                        iconColor: themeManager.accent,
+                        title: "Export Data",
+                        showChevron: true
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .padding(.leading, 52)
+
+                // Clear Data Button
+                Button(action: { showClearDataAlert = true }) {
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.red.opacity(0.15))
+                                .frame(width: 36, height: 36)
+
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 16))
+                                .foregroundColor(.red)
+                        }
+
+                        Text("Clear All Data")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.red)
+
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 4)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(themeManager.tertiaryBackground)
+            )
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(themeManager.cardBackground)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+    }
+
+    // MARK: - About Section
+
+    private var aboutSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section Header
+            HStack {
+                Image(systemName: "info.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(themeManager.accent)
+
+                Text("About")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(themeManager.accent)
+            }
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                SettingsRow(
+                    icon: "app.badge.fill",
+                    iconColor: themeManager.primary,
+                    title: "Version",
+                    value: appVersion
+                )
+
+                Divider()
+                    .padding(.leading, 52)
+
+                SettingsRow(
+                    icon: "hammer.fill",
+                    iconColor: themeManager.secondary,
+                    title: "Build",
+                    value: buildNumber
+                )
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(themeManager.tertiaryBackground)
+            )
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(themeManager.cardBackground)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+    }
+
+    // MARK: - Footer
+
+    private var footerView: some View {
+        VStack(spacing: 8) {
+            Text("Made with ❤️ for travelers")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
+
+            Text("© 2026 WanderState")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Helper Functions
 
     private func calculateStorageUsed() -> String {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let photosPath = documentsPath.appendingPathComponent("Photos")
 
         guard let contents = try? FileManager.default.contentsOfDirectory(at: photosPath, includingPropertiesForKeys: [.fileSizeKey]) else {
-            return "0 MB"
+            return "0 KB"
         }
 
         var totalSize: Int64 = 0
@@ -187,26 +316,253 @@ struct DataManagementView: View {
         return formatter.string(fromByteCount: totalSize)
     }
 
-    private func updateStats() {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let photosPath = documentsPath.appendingPathComponent("Photos")
-
-        if let contents = try? FileManager.default.contentsOfDirectory(at: photosPath, includingPropertiesForKeys: nil) {
-            photoCount = contents.filter { $0.pathExtension == "jpg" || $0.pathExtension == "jpeg" || $0.pathExtension == "png" }.count
-        }
-    }
-
     private func clearAllData() {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let photosPath = documentsPath.appendingPathComponent("Photos")
 
         try? FileManager.default.removeItem(at: photosPath)
         try? FileManager.default.createDirectory(at: photosPath, withIntermediateDirectories: true)
-
-        updateStats()
     }
 }
 
+// MARK: - Theme Card
+
+struct ThemeCard: View {
+    let theme: ColorTheme
+    let isSelected: Bool
+    let themeManager: ThemeManager
+    let onSelect: () -> Void
+
+    var body: some View {
+        Button(action: onSelect) {
+            HStack(spacing: 14) {
+                // Color swatches in a row
+                HStack(spacing: 3) {
+                    ForEach(theme.swatchColors, id: \.self) { color in
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(color)
+                            .frame(width: 22, height: 22)
+                    }
+                }
+                .padding(6)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(themeManager.tertiaryBackground)
+                )
+
+                // Theme info
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(theme.displayName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(.primary)
+
+                    Text(theme.description)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                // Selection indicator
+                ZStack {
+                    Circle()
+                        .stroke(isSelected ? theme.primary : Color.gray.opacity(0.3), lineWidth: 2)
+                        .frame(width: 24, height: 24)
+
+                    if isSelected {
+                        Circle()
+                            .fill(theme.primary)
+                            .frame(width: 14, height: 14)
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? theme.primary.opacity(0.08) : themeManager.tertiaryBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? theme.primary.opacity(0.3) : Color.clear, lineWidth: 1.5)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Settings Row
+
+struct SettingsRow: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    var value: String? = nil
+    var showChevron: Bool = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(iconColor.opacity(0.15))
+                    .frame(width: 36, height: 36)
+
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundColor(iconColor)
+            }
+
+            Text(title)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.primary)
+
+            Spacer()
+
+            if let value = value {
+                Text(value)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+            }
+
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.secondary.opacity(0.5))
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 4)
+    }
+}
+
+// MARK: - Export Data View
+
+struct ExportDataView: View {
+    let photos: [PhotoEntity]
+    let themeManager: ThemeManager
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Spacer()
+
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(themeManager.primary.opacity(0.15))
+                        .frame(width: 100, height: 100)
+
+                    Image(systemName: "square.and.arrow.up.fill")
+                        .font(.system(size: 40))
+                        .foregroundColor(themeManager.primary)
+                }
+
+                VStack(spacing: 8) {
+                    Text("Export Your Data")
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundColor(.primary)
+
+                    Text("Export \(photos.count) photos and their journal entries")
+                        .font(.system(size: 15))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
+
+                Spacer()
+
+                // Export Options
+                VStack(spacing: 12) {
+                    ExportOptionButton(
+                        icon: "doc.zipper",
+                        title: "Export as ZIP",
+                        subtitle: "Photos + JSON metadata",
+                        color: themeManager.primary
+                    ) {
+                        // Export functionality
+                        dismiss()
+                    }
+
+                    ExportOptionButton(
+                        icon: "doc.text.fill",
+                        title: "Export Journal Only",
+                        subtitle: "Text file with all entries",
+                        color: themeManager.secondary
+                    ) {
+                        // Export functionality
+                        dismiss()
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                Spacer()
+            }
+            .navigationTitle("Export")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+// MARK: - Export Option Button
+
+struct ExportOptionButton: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(color.opacity(0.15))
+                        .frame(width: 44, height: 44)
+
+                    Image(systemName: icon)
+                        .font(.system(size: 20))
+                        .foregroundColor(color)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
+
+                    Text(subtitle)
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.secondary.opacity(0.5))
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Preview
+
 #Preview {
     SettingsScreen()
+        .modelContainer(for: [PhotoEntity.self, JournalEntryEntity.self], inMemory: true)
 }
