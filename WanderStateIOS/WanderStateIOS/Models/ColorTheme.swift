@@ -202,3 +202,24 @@ extension EnvironmentValues {
         set { self[ThemeKey.self] = newValue }
     }
 }
+
+// MARK: - Navigation Manager
+
+@Observable
+class NavigationManager {
+    static let shared = NavigationManager()
+
+    var selectedTab: Int = 0
+    var galleryStateFilter: String? = nil
+
+    private init() {}
+
+    func navigateToGallery(forState stateName: String) {
+        galleryStateFilter = stateName
+        selectedTab = 1  // Gallery tab
+    }
+
+    func clearGalleryFilter() {
+        galleryStateFilter = nil
+    }
+}

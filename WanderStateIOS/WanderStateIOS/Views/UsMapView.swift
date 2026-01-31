@@ -16,6 +16,7 @@ struct UsMapView: View {
 
     // Theme manager for dynamic colors
     @State private var themeManager = ThemeManager.shared
+    @State private var navigationManager = NavigationManager.shared
 
     @State private var selectedState: StateInfo?
     @State private var showStatePopup: Bool = false
@@ -276,73 +277,80 @@ struct UsMapView: View {
     // MARK: - Popup View
 
     private func statePopup(for state: StateInfo, photoCount: Int) -> some View {
-        VStack(spacing: 12) {
-            // State name with themed color
-            Text(state.name)
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(themeManager.primary)
+        VStack(spacing: 4) {
+            // State name with photo count - compact single line
+            HStack(spacing: 4) {
+                Text(state.name)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(themeManager.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
 
-            // Photo count
-            HStack(spacing: 6) {
+                Text("•")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+
                 Image(systemName: "photo.fill")
-                    .font(.system(size: 13))
+                    .font(.system(size: 9))
                     .foregroundColor(themeManager.secondary)
-                Text("\(photoCount) photo\(photoCount == 1 ? "" : "s")")
-                    .font(.system(size: 14, weight: .medium))
+                Text("\(photoCount)")
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
             }
+            .fixedSize(horizontal: true, vertical: false)
 
-            // Full-width Add Photo button (Android style)
-            Button(action: {
-                showAddPhotoSheet = true
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 16))
-                    Text("Add Photo")
-                        .font(.system(size: 15, weight: .semibold))
-                }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(themeManager.primary)
-                .cornerRadius(24)
-            }
-            .padding(.top, 4)
-
-            // View Photos button (if there are photos)
-            if photoCount > 0 {
+            // Compact buttons row
+            HStack(spacing: 6) {
+                // Add Photo button
                 Button(action: {
-                    // Navigate to gallery filtered by this state
-                    showStatePopup = false
+                    showAddPhotoSheet = true
                 }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "photo.on.rectangle")
-                            .font(.system(size: 16))
-                        Text("View WanderStates")
-                            .font(.system(size: 15, weight: .semibold))
+                    HStack(spacing: 4) {
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 10))
+                        Text("Add")
+                            .font(.system(size: 11, weight: .semibold))
                     }
-                    .foregroundColor(themeManager.primary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 24)
-                            .stroke(themeManager.primary, lineWidth: 2)
-                    )
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(themeManager.primary)
+                    .cornerRadius(12)
+                }
+
+                // View Photos button (only if photos exist)
+                if photoCount > 0 {
+                    Button(action: {
+                        showStatePopup = false
+                        navigationManager.navigateToGallery(forState: state.name)
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "photo.on.rectangle")
+                                .font(.system(size: 10))
+                            Text("View")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundColor(themeManager.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(themeManager.primary, lineWidth: 1)
+                        )
+                    }
                 }
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 18)
-        .frame(width: 280)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 12)
                 .fill(themeManager.cardBackground)
-                .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
+                .shadow(color: .black.opacity(0.12), radius: 8, x: 0, y: 4)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(themeManager.primary.opacity(0.15), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(themeManager.primary.opacity(0.1), lineWidth: 0.5)
         )
         .transition(.scale.combined(with: .opacity))
     }
@@ -378,8 +386,11 @@ struct UsMapView: View {
     private func handleStateTap(_ state: StateInfo) {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             if selectedState?.id == state.id {
-                showStatePopup.toggle()
+                // Tapping same state - close popup and deselect
+                showStatePopup = false
+                selectedState = nil
             } else {
+                // Tapping new state - select and show popup
                 selectedState = state
                 showStatePopup = true
             }

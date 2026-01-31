@@ -8,11 +8,11 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @State private var selectedTab = 0
+    @State private var navigationManager = NavigationManager.shared
     @State private var themeManager = ThemeManager.shared
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        TabView(selection: $navigationManager.selectedTab) {
             MapScreen()
                 .tabItem {
                     Label("Map", systemImage: "map.fill")

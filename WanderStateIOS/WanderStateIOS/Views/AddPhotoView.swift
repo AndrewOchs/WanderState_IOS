@@ -13,11 +13,13 @@ struct AddPhotoView: View {
     let stateCode: String
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @State private var themeManager = ThemeManager.shared
 
     // Form state
     @State private var capturedImage: UIImage?
     @State private var cityName: String = ""
     @State private var journalEntry: String = ""
+    @State private var selectedDate: Date = Date()
 
     // Camera state
     @State private var showCamera = false
@@ -35,94 +37,199 @@ struct AddPhotoView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                // Photo Section
-                Section {
-                    if let image = capturedImage {
-                        // Photo preview
-                        VStack(spacing: 12) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(height: 200)
-                                .clipped()
-                                .cornerRadius(12)
+            ZStack {
+                themeManager.background
+                    .ignoresSafeArea()
 
-                            Button(action: { showImageSourcePicker = true }) {
-                                Label("Change Photo", systemImage: "arrow.triangle.2.circlepath.camera")
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // MARK: - Photo Section
+                        VStack(alignment: .leading, spacing: 10) {
+                            sectionHeader("PHOTO", icon: "camera.fill")
+
+                            if let image = capturedImage {
+                                // Photo preview
+                                VStack(spacing: 12) {
+                                    Image(uiImage: image)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(height: 200)
+                                        .frame(maxWidth: .infinity)
+                                        .clipped()
+                                        .cornerRadius(12)
+
+                                    Button(action: { showImageSourcePicker = true }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "arrow.triangle.2.circlepath.camera")
+                                                .font(.system(size: 14))
+                                            Text("Change Photo")
+                                                .font(.system(size: 14, weight: .medium))
+                                        }
+                                        .foregroundColor(themeManager.primary)
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 8)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8)
+                                                .stroke(themeManager.primary, lineWidth: 1)
+                                        )
+                                    }
+                                }
+                            } else {
+                                // No photo yet - show add button
+                                Button(action: { showImageSourcePicker = true }) {
+                                    VStack(spacing: 10) {
+                                        Image(systemName: "camera.fill")
+                                            .font(.system(size: 36))
+                                            .foregroundColor(themeManager.primary)
+                                        Text("Tap to Add Photo")
+                                            .font(.system(size: 15, weight: .medium))
+                                            .foregroundColor(themeManager.primary)
+                                    }
                                     .frame(maxWidth: .infinity)
+                                    .frame(height: 140)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .fill(themeManager.primary.opacity(0.08))
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 12)
+                                                    .stroke(themeManager.primary.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [8]))
+                                            )
+                                    )
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.bordered)
                         }
-                        .padding(.vertical, 8)
-                    } else {
-                        // No photo yet - show add button
-                        Button(action: { showImageSourcePicker = true }) {
-                            VStack(spacing: 12) {
-                                Image(systemName: "camera.fill")
-                                    .font(.system(size: 40))
-                                    .foregroundColor(.blue)
-                                Text("Add Photo")
-                                    .font(.headline)
-                                    .foregroundColor(.blue)
+                        .padding(.horizontal, 16)
+
+                        // MARK: - Location & Date Section
+                        VStack(alignment: .leading, spacing: 10) {
+                            sectionHeader("LOCATION & DATE", icon: "mappin.and.ellipse")
+
+                            VStack(spacing: 0) {
+                                // State (read-only)
+                                HStack {
+                                    Text("State")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Text(stateName)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundColor(.primary)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+
+                                Divider()
+                                    .padding(.leading, 14)
+
+                                // City input
+                                HStack {
+                                    Text("City")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.secondary)
+                                    TextField("Optional", text: $cityName)
+                                        .font(.system(size: 15))
+                                        .multilineTextAlignment(.trailing)
+                                        .textContentType(.addressCity)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+
+                                Divider()
+                                    .padding(.leading, 14)
+
+                                // Date picker
+                                HStack {
+                                    Text("Date")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    DatePicker("", selection: $selectedDate, displayedComponents: [.date, .hourAndMinute])
+                                        .labelsHidden()
+                                        .tint(themeManager.primary)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
                             }
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 150)
-                            .background(Color(UIColor.secondarySystemGroupedBackground))
+                            .background(themeManager.cardBackground)
                             .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                            )
                         }
-                        .buttonStyle(.plain)
-                        .padding(.vertical, 8)
-                    }
-                } header: {
-                    Text("Photo")
-                }
+                        .padding(.horizontal, 16)
 
-                // Location Section
-                Section {
-                    TextField("City name (optional)", text: $cityName)
-                        .textContentType(.addressCity)
-                } header: {
-                    Text("Location")
-                } footer: {
-                    Text("Adding to: \(stateName)")
-                }
+                        // MARK: - Journal Section
+                        VStack(alignment: .leading, spacing: 10) {
+                            sectionHeader("JOURNAL ENTRY", icon: "pencil.line")
 
-                // Journal Section
-                Section {
-                    TextEditor(text: $journalEntry)
-                        .frame(minHeight: 100)
-                        .overlay(
-                            Group {
+                            ZStack(alignment: .topLeading) {
+                                TextEditor(text: $journalEntry)
+                                    .font(.system(size: 15))
+                                    .frame(minHeight: 100)
+                                    .padding(10)
+                                    .scrollContentBackground(.hidden)
+                                    .background(themeManager.cardBackground)
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                                    )
+
                                 if journalEntry.isEmpty {
-                                    Text("Write about your experience...")
-                                        .foregroundColor(.gray)
-                                        .padding(.leading, 4)
-                                        .padding(.top, 8)
+                                    Text("Write about your experience... (optional)")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.secondary.opacity(0.6))
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 18)
                                         .allowsHitTesting(false)
                                 }
-                            },
-                            alignment: .topLeading
-                        )
-                } header: {
-                    Text("Journal Entry (Optional)")
+                            }
+                        }
+                        .padding(.horizontal, 16)
+
+                        // MARK: - Save Button
+                        Button(action: savePhoto) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 18))
+                                Text("Save Photo")
+                                    .font(.system(size: 17, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(capturedImage != nil ? themeManager.primary : Color.gray.opacity(0.4))
+                            )
+                            .shadow(color: capturedImage != nil ? themeManager.primary.opacity(0.3) : .clear, radius: 8, y: 4)
+                        }
+                        .disabled(capturedImage == nil)
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 30)
+                    }
+                    .padding(.top, 16)
                 }
             }
             .navigationTitle(stateName)
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(themeManager.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
+                    .foregroundColor(themeManager.primary)
                 }
 
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        savePhoto()
-                    }
-                    .disabled(capturedImage == nil)
-                    .fontWeight(.semibold)
+                ToolbarItem(placement: .principal) {
+                    Text(stateName)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(themeManager.primary)
                 }
             }
             .confirmationDialog("Add Photo", isPresented: $showImageSourcePicker) {
@@ -149,6 +256,19 @@ struct AddPhotoView: View {
         }
     }
 
+    // MARK: - Section Header
+    private func sectionHeader(_ title: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(themeManager.primary)
+            Text(title)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(themeManager.primary)
+        }
+        .padding(.leading, 4)
+    }
+
     private func savePhoto() {
         guard let image = capturedImage else { return }
 
@@ -158,7 +278,7 @@ struct AddPhotoView: View {
             let fileName = "\(photoId.uuidString).jpg"
             let fileURL = try saveImageToDocuments(image: image, fileName: fileName)
 
-            // Create PhotoEntity
+            // Create PhotoEntity with user-selected date
             let photoEntity = PhotoEntity(
                 id: photoId,
                 uri: fileURL.path,
@@ -167,7 +287,7 @@ struct AddPhotoView: View {
                 cityName: cityName,
                 latitude: 0.0,
                 longitude: 0.0,
-                capturedDate: Date(),
+                capturedDate: selectedDate,
                 addedDate: Date(),
                 thumbnailUri: ""
             )

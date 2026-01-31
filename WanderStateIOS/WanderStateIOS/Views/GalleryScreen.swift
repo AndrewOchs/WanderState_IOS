@@ -11,13 +11,22 @@ import SwiftData
 struct GalleryScreen: View {
     @Query(sort: \PhotoEntity.addedDate, order: .reverse) private var photos: [PhotoEntity]
     @State private var themeManager = ThemeManager.shared
+    @State private var navigationManager = NavigationManager.shared
     @State private var showFilterMenu = false
     @State private var sortOrder: SortOrder = .dateNewest
     @State private var groupByState = true
 
+    // Filtered photos based on state filter
+    private var filteredPhotos: [PhotoEntity] {
+        if let stateFilter = navigationManager.galleryStateFilter {
+            return photos.filter { $0.stateName == stateFilter }
+        }
+        return photos
+    }
+
     // Group photos by state
     private var photosByState: [(state: String, photos: [PhotoEntity])] {
-        let grouped = Dictionary(grouping: photos) { $0.stateName }
+        let grouped = Dictionary(grouping: filteredPhotos) { $0.stateName }
         return grouped.map { (state: $0.key, photos: $0.value) }
             .sorted { $0.state < $1.state }
     }
@@ -26,11 +35,11 @@ struct GalleryScreen: View {
     private var sortedPhotos: [PhotoEntity] {
         switch sortOrder {
         case .dateNewest:
-            return photos.sorted { $0.addedDate > $1.addedDate }
+            return filteredPhotos.sorted { $0.addedDate > $1.addedDate }
         case .dateOldest:
-            return photos.sorted { $0.addedDate < $1.addedDate }
+            return filteredPhotos.sorted { $0.addedDate < $1.addedDate }
         case .stateName:
-            return photos.sorted { $0.stateName < $1.stateName }
+            return filteredPhotos.sorted { $0.stateName < $1.stateName }
         }
     }
 
@@ -50,7 +59,7 @@ struct GalleryScreen: View {
                     headerView
 
                     // MARK: - Content
-                    if photos.isEmpty {
+                    if filteredPhotos.isEmpty {
                         emptyStateView
                     } else {
                         photoContentView
@@ -64,73 +73,150 @@ struct GalleryScreen: View {
     // MARK: - Header View
 
     private var headerView: some View {
-        HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Photo Gallery")
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundColor(themeManager.primary)
+        VStack(spacing: 0) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    // Show state name if filtering, otherwise "Photo Gallery"
+                    if let stateFilter = navigationManager.galleryStateFilter {
+                        HStack(spacing: 8) {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 18))
+                                .foregroundColor(themeManager.accent)
 
-                Text("\(photos.count) photo\(photos.count == 1 ? "" : "s")")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
-            }
+                            Text(stateFilter)
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(themeManager.primary)
 
-            Spacer()
+                            Button(action: {
+                                withAnimation {
+                                    navigationManager.clearGalleryFilter()
+                                }
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(.secondary.opacity(0.6))
+                            }
+                        }
+                    } else {
+                        HStack(spacing: 8) {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .font(.system(size: 20))
+                                .foregroundColor(themeManager.accent)
 
-            // Filter/Menu Button
-            Menu {
-                Section("Sort By") {
-                    Button(action: { sortOrder = .dateNewest }) {
-                        Label("Newest First", systemImage: sortOrder == .dateNewest ? "checkmark" : "")
+                            Text("Photo Gallery")
+                                .font(.system(size: 24, weight: .bold))
+                                .foregroundColor(themeManager.primary)
+                        }
                     }
-                    Button(action: { sortOrder = .dateOldest }) {
-                        Label("Oldest First", systemImage: sortOrder == .dateOldest ? "checkmark" : "")
-                    }
-                    Button(action: { sortOrder = .stateName }) {
-                        Label("By State", systemImage: sortOrder == .stateName ? "checkmark" : "")
-                    }
+
+                    Text("\(filteredPhotos.count) photo\(filteredPhotos.count == 1 ? "" : "s")")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 2)
                 }
 
-                Section("Display") {
-                    Button(action: { groupByState.toggle() }) {
-                        Label(groupByState ? "Show All Photos" : "Group by State",
-                              systemImage: groupByState ? "square.grid.2x2" : "folder")
+                Spacer()
+
+                // Filter/Menu Button
+                Menu {
+                    Section("Sort By") {
+                        Button(action: { sortOrder = .dateNewest }) {
+                            Label("Newest First", systemImage: sortOrder == .dateNewest ? "checkmark" : "")
+                        }
+                        Button(action: { sortOrder = .dateOldest }) {
+                            Label("Oldest First", systemImage: sortOrder == .dateOldest ? "checkmark" : "")
+                        }
+                        Button(action: { sortOrder = .stateName }) {
+                            Label("By State", systemImage: sortOrder == .stateName ? "checkmark" : "")
+                        }
                     }
+
+                    Section("Display") {
+                        Button(action: { groupByState.toggle() }) {
+                            Label(groupByState ? "Show All Photos" : "Group by State",
+                                  systemImage: groupByState ? "square.grid.2x2" : "folder")
+                        }
+                    }
+
+                    if navigationManager.galleryStateFilter != nil {
+                        Section {
+                            Button(action: { navigationManager.clearGalleryFilter() }) {
+                                Label("Show All States", systemImage: "map")
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(themeManager.primary)
                 }
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundColor(themeManager.primary)
             }
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
+
+            // Subtle divider
+            Rectangle()
+                .fill(themeManager.primary.opacity(0.1))
+                .frame(height: 1)
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 12)
-        .background(themeManager.background)
+        .background(themeManager.cardBackground)
     }
 
     // MARK: - Empty State
 
     private var emptyStateView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             Spacer()
 
-            Image(systemName: "photo.on.rectangle.angled")
-                .font(.system(size: 80))
-                .foregroundColor(themeManager.primary.opacity(0.4))
+            // Icon in a circle
+            ZStack {
+                Circle()
+                    .fill(themeManager.primary.opacity(0.1))
+                    .frame(width: 120, height: 120)
+
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.system(size: 50))
+                    .foregroundColor(themeManager.primary.opacity(0.6))
+            }
 
             Text("No Photos Yet")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(.primary)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(themeManager.primary)
 
-            Text("Tap a state on the map to add your first travel photo!")
-                .font(.system(size: 16))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
+            if navigationManager.galleryStateFilter != nil {
+                Text("No photos from this state yet.\nTap a state on the map to add photos!")
+                    .font(.system(size: 15))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+
+                Button(action: {
+                    navigationManager.clearGalleryFilter()
+                }) {
+                    Text("View All Photos")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(themeManager.primary)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(themeManager.primary, lineWidth: 1.5)
+                        )
+                }
+                .padding(.top, 8)
+            } else {
+                Text("Tap a state on the map to add\nyour first travel photo!")
+                    .font(.system(size: 15))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
 
             Spacer()
+            Spacer()
         }
+        .padding(.horizontal, 40)
     }
 
     // MARK: - Photo Content
@@ -148,25 +234,35 @@ struct GalleryScreen: View {
     // MARK: - Grouped by State View
 
     private var groupedPhotoView: some View {
-        LazyVStack(alignment: .leading, spacing: 24) {
+        LazyVStack(alignment: .leading, spacing: 20) {
             ForEach(photosByState, id: \.state) { group in
-                VStack(alignment: .leading, spacing: 12) {
-                    // Section Header
-                    HStack {
+                VStack(alignment: .leading, spacing: 10) {
+                    // Section Header with state icon
+                    HStack(spacing: 8) {
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(themeManager.accent)
+
                         Text(group.state)
-                            .font(.system(size: 20, weight: .bold))
+                            .font(.system(size: 18, weight: .bold))
                             .foregroundColor(themeManager.primary)
 
-                        Text("(\(group.photos.count))")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(.secondary)
+                        Text("\(group.photos.count)")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(themeManager.secondary)
+                            )
 
                         Spacer()
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 18)
 
                     // Photo Grid for this state
-                    LazyVGrid(columns: columns, spacing: 12) {
+                    LazyVGrid(columns: columns, spacing: 14) {
                         ForEach(group.photos) { photo in
                             NavigationLink(destination: PhotoDetailView(photo: photo)) {
                                 PhotoCard(photo: photo, themeManager: themeManager)
@@ -174,18 +270,19 @@ struct GalleryScreen: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, 14)
                 }
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, 6)
         }
-        .padding(.top, 8)
+        .padding(.top, 12)
+        .padding(.bottom, 20)
     }
 
     // MARK: - Flat Grid View
 
     private var flatPhotoGridView: some View {
-        LazyVGrid(columns: columns, spacing: 12) {
+        LazyVGrid(columns: columns, spacing: 14) {
             ForEach(sortedPhotos) { photo in
                 NavigationLink(destination: PhotoDetailView(photo: photo)) {
                     PhotoCard(photo: photo, themeManager: themeManager)
@@ -193,8 +290,9 @@ struct GalleryScreen: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
+        .padding(.horizontal, 14)
+        .padding(.top, 12)
+        .padding(.bottom, 20)
     }
 }
 
@@ -214,52 +312,82 @@ struct PhotoCard: View {
 
     private var formattedDate: String {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
+        formatter.dateFormat = "MMM d, yyyy"
         return formatter.string(from: photo.capturedDate)
+    }
+
+    private var locationText: String {
+        if !photo.cityName.isEmpty {
+            return "\(photo.cityName), \(photo.stateCode)"
+        }
+        return photo.stateCode
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Photo Thumbnail with overlays
-            ZStack(alignment: .topLeading) {
+            ZStack {
                 // Photo Image
                 if let image = loadImage(from: photo.uri) {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
-                        .frame(height: 140)
+                        .frame(height: 130)
                         .clipped()
                 } else {
                     Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(height: 140)
+                        .fill(themeManager.primary.opacity(0.08))
+                        .frame(height: 130)
                         .overlay(
                             Image(systemName: "photo")
-                                .font(.system(size: 30))
-                                .foregroundColor(.gray.opacity(0.5))
+                                .font(.system(size: 28))
+                                .foregroundColor(themeManager.primary.opacity(0.3))
                         )
                 }
 
-                // State & City overlay (top-left)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(photo.stateName)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
+                // Gradient overlay for text readability
+                VStack {
+                    // Top gradient
+                    LinearGradient(
+                        colors: [.black.opacity(0.5), .clear],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 40)
 
-                    if !photo.cityName.isEmpty {
-                        Text(photo.cityName)
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.white.opacity(0.9))
-                    }
+                    Spacer()
+
+                    // Bottom gradient
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.4)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 30)
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.black.opacity(0.6))
-                )
-                .padding(8)
+
+                // Location overlay (top-left)
+                VStack {
+                    HStack {
+                        HStack(spacing: 4) {
+                            Image(systemName: "mappin")
+                                .font(.system(size: 9, weight: .bold))
+                            Text(locationText)
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(Color.black.opacity(0.55))
+                        )
+                        .padding(6)
+
+                        Spacer()
+                    }
+                    Spacer()
+                }
 
                 // Edit icon (bottom-right)
                 VStack {
@@ -267,14 +395,14 @@ struct PhotoCard: View {
                     HStack {
                         Spacer()
                         Image(systemName: "pencil.circle.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.white)
-                            .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
-                            .padding(8)
+                            .font(.system(size: 22))
+                            .foregroundColor(.white.opacity(0.9))
+                            .shadow(color: .black.opacity(0.4), radius: 2, x: 0, y: 1)
+                            .padding(6)
                     }
                 }
             }
-            .frame(height: 140)
+            .frame(height: 130)
             .clipShape(
                 UnevenRoundedRectangle(
                     topLeadingRadius: 12,
@@ -284,27 +412,31 @@ struct PhotoCard: View {
                 )
             )
 
-            // Date stamp below photo
-            HStack {
+            // Date and info bar below photo
+            HStack(spacing: 6) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 11))
+                    .font(.system(size: 10))
                     .foregroundColor(themeManager.secondary)
 
                 Text(formattedDate)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
 
                 Spacer()
 
                 // Journal indicator
                 if photo.journalEntry != nil {
-                    Image(systemName: "note.text")
-                        .font(.system(size: 11))
-                        .foregroundColor(themeManager.accent)
+                    HStack(spacing: 3) {
+                        Image(systemName: "note.text")
+                            .font(.system(size: 10))
+                        Text("Journal")
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundColor(themeManager.accent)
                 }
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 10)
+            .padding(.vertical, 8)
             .background(themeManager.cardBackground)
             .clipShape(
                 UnevenRoundedRectangle(
@@ -318,7 +450,11 @@ struct PhotoCard: View {
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(themeManager.cardBackground)
-                .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+                .shadow(color: .black.opacity(0.1), radius: 6, x: 0, y: 3)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.primary.opacity(0.05), lineWidth: 0.5)
         )
     }
 
