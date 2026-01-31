@@ -65,6 +65,8 @@ struct PhotoDetailView: View {
                     // MARK: - Journal Card
                     if let journal = photo.journalEntry, !journal.entryText.isEmpty {
                         journalCard(journal: journal)
+                    } else {
+                        emptyJournalCard
                     }
 
                     // Bottom spacing for action buttons
@@ -279,8 +281,8 @@ struct PhotoDetailView: View {
                 Spacer()
 
                 Button(action: { showEditSheet = true }) {
-                    Image(systemName: "pencil.circle")
-                        .font(.system(size: 20))
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.system(size: 22))
                         .foregroundColor(themeManager.secondary)
                 }
             }
@@ -289,15 +291,19 @@ struct PhotoDetailView: View {
             Text(journal.entryText)
                 .font(.system(size: 15))
                 .foregroundColor(.primary)
-                .lineSpacing(4)
+                .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
 
             // Last updated
             if let updatedDate = journalUpdatedDate {
-                Text("Last updated: \(updatedDate)")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(.secondary)
-                    .padding(.top, 4)
+                HStack(spacing: 4) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 10))
+                    Text("Last updated: \(updatedDate)")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .foregroundColor(.secondary)
+                .padding(.top, 4)
             }
         }
         .padding(16)
@@ -307,9 +313,63 @@ struct PhotoDetailView: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(themeManager.primary.opacity(0.2), lineWidth: 1)
+                .stroke(themeManager.primary.opacity(0.15), lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
+    }
+
+    // MARK: - Empty Journal Card
+
+    private var emptyJournalCard: some View {
+        VStack(spacing: 12) {
+            // Header
+            HStack {
+                Image(systemName: "book")
+                    .font(.system(size: 16))
+                    .foregroundColor(themeManager.primary.opacity(0.6))
+
+                Text("Journal Entry")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(themeManager.primary.opacity(0.6))
+
+                Spacer()
+            }
+
+            // Empty state
+            VStack(spacing: 8) {
+                Image(systemName: "pencil.line")
+                    .font(.system(size: 28))
+                    .foregroundColor(.secondary.opacity(0.4))
+
+                Text("No journal entry yet")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+
+                Button(action: { showEditSheet = true }) {
+                    Text("Add Entry")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(themeManager.primary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(themeManager.primary, lineWidth: 1)
+                        )
+                }
+                .padding(.top, 4)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(themeManager.cardBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        )
     }
 
     // MARK: - Action Buttons Bar
@@ -405,50 +465,168 @@ struct EditPhotoView: View {
 
     @State private var cityName: String = ""
     @State private var journalText: String = ""
+    @State private var capturedDate: Date = Date()
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("City Name", text: $cityName)
-                } header: {
-                    Text("Location")
-                }
+            ZStack {
+                themeManager.background
+                    .ignoresSafeArea()
 
-                Section {
-                    TextEditor(text: $journalText)
-                        .frame(minHeight: 150)
-                } header: {
-                    Text("Journal Entry")
-                } footer: {
-                    Text("Write about your memories from this place")
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // MARK: - Location Section
+                        VStack(alignment: .leading, spacing: 10) {
+                            sectionHeader("LOCATION", icon: "mappin.and.ellipse")
+
+                            VStack(spacing: 0) {
+                                // State (read-only)
+                                HStack {
+                                    Text("State")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    Text(photo.stateName)
+                                        .font(.system(size: 15, weight: .medium))
+                                        .foregroundColor(.primary)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+
+                                Divider()
+                                    .padding(.leading, 14)
+
+                                // City input
+                                HStack {
+                                    Text("City")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.secondary)
+                                    TextField("Optional", text: $cityName)
+                                        .font(.system(size: 15))
+                                        .multilineTextAlignment(.trailing)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+
+                                Divider()
+                                    .padding(.leading, 14)
+
+                                // Date picker
+                                HStack {
+                                    Text("Date")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    DatePicker("", selection: $capturedDate, displayedComponents: [.date, .hourAndMinute])
+                                        .labelsHidden()
+                                        .tint(themeManager.primary)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                            }
+                            .background(themeManager.cardBackground)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                            )
+                        }
+                        .padding(.horizontal, 16)
+
+                        // MARK: - Journal Section
+                        VStack(alignment: .leading, spacing: 10) {
+                            sectionHeader("JOURNAL ENTRY", icon: "pencil.line")
+
+                            ZStack(alignment: .topLeading) {
+                                TextEditor(text: $journalText)
+                                    .font(.system(size: 15))
+                                    .frame(minHeight: 120)
+                                    .padding(10)
+                                    .scrollContentBackground(.hidden)
+                                    .background(themeManager.cardBackground)
+                                    .cornerRadius(12)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                                    )
+
+                                if journalText.isEmpty {
+                                    Text("Write about your memories from this place...")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(.secondary.opacity(0.6))
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 18)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+
+                        // MARK: - Save Button
+                        Button(action: saveChanges) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 18))
+                                Text("Save Changes")
+                                    .font(.system(size: 17, weight: .semibold))
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(themeManager.primary)
+                            )
+                            .shadow(color: themeManager.primary.opacity(0.3), radius: 8, y: 4)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 30)
+                    }
+                    .padding(.top, 16)
                 }
             }
             .navigationTitle("Edit Photo")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(themeManager.background, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") {
                         dismiss()
                     }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveChanges()
-                    }
-                    .fontWeight(.semibold)
                     .foregroundColor(themeManager.primary)
+                }
+
+                ToolbarItem(placement: .principal) {
+                    Text("Edit Photo")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(themeManager.primary)
                 }
             }
             .onAppear {
                 cityName = photo.cityName
                 journalText = photo.journalEntry?.entryText ?? ""
+                capturedDate = photo.capturedDate
             }
         }
     }
 
+    private func sectionHeader(_ title: String, icon: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(themeManager.primary)
+            Text(title)
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(themeManager.primary)
+        }
+        .padding(.leading, 4)
+    }
+
     private func saveChanges() {
         photo.cityName = cityName
+        photo.capturedDate = capturedDate
 
         if !journalText.isEmpty {
             if let journal = photo.journalEntry {

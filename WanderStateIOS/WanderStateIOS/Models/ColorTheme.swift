@@ -7,6 +7,40 @@
 
 import SwiftUI
 
+// MARK: - Appearance Mode
+
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case light = "light"
+    case dark = "dark"
+    case system = "system"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .system: return "System"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .light: return "sun.max.fill"
+        case .dark: return "moon.fill"
+        case .system: return "circle.lefthalf.filled"
+        }
+    }
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .light: return .light
+        case .dark: return .dark
+        case .system: return nil
+        }
+    }
+}
+
 // MARK: - Color Theme Definition
 
 enum ColorTheme: String, CaseIterable, Identifiable {
@@ -82,18 +116,18 @@ enum ColorTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    // Main screen background - subtle, warm tones
-    var background: Color {
+    // MARK: - Light Mode Backgrounds
+
+    var backgroundLight: Color {
         switch self {
         case .vintageGreen: return Color(hex: "F5F1E8")  // Warm tan/beige
         case .oceanBlue: return Color(hex: "E8F4F8")     // Soft blue-gray
         case .sunsetOrange: return Color(hex: "FFF5E8")  // Light peach/cream
-        case .rosewoodPink: return Color(hex: "FFF0F5")  // Very light pink (lavender blush)
+        case .rosewoodPink: return Color(hex: "FFF0F5")  // Very light pink
         }
     }
 
-    // Card/surface background - slightly lighter than background
-    var cardBackground: Color {
+    var cardBackgroundLight: Color {
         switch self {
         case .vintageGreen: return Color(hex: "FDFCF9")  // Off-white with warm tint
         case .oceanBlue: return Color(hex: "F5FAFC")     // Very light blue-white
@@ -102,8 +136,7 @@ enum ColorTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    // Tertiary background for nested elements
-    var tertiaryBackground: Color {
+    var tertiaryBackgroundLight: Color {
         switch self {
         case .vintageGreen: return Color(hex: "EDE8DC")  // Slightly darker tan
         case .oceanBlue: return Color(hex: "DCE8EC")     // Muted blue-gray
@@ -112,14 +145,40 @@ enum ColorTheme: String, CaseIterable, Identifiable {
         }
     }
 
+    // MARK: - Dark Mode Backgrounds
+
     var backgroundDark: Color {
         switch self {
-        case .vintageGreen: return Color(hex: "1A2E1A")  // Dark green
-        case .oceanBlue: return Color(hex: "0A1929")     // Dark blue
-        case .sunsetOrange: return Color(hex: "2C1810")  // Dark brown
-        case .rosewoodPink: return Color(hex: "2A1520")  // Dark rose
+        case .vintageGreen: return Color(hex: "121A12")  // Very dark green-tinted
+        case .oceanBlue: return Color(hex: "0D1520")     // Very dark blue-tinted
+        case .sunsetOrange: return Color(hex: "1A1210")  // Very dark warm
+        case .rosewoodPink: return Color(hex: "1A1218")  // Very dark pink-tinted
         }
     }
+
+    var cardBackgroundDark: Color {
+        switch self {
+        case .vintageGreen: return Color(hex: "1E2A1E")  // Dark green card
+        case .oceanBlue: return Color(hex: "162030")     // Dark blue card
+        case .sunsetOrange: return Color(hex: "2A1E18")  // Dark orange card
+        case .rosewoodPink: return Color(hex: "2A1A22")  // Dark pink card
+        }
+    }
+
+    var tertiaryBackgroundDark: Color {
+        switch self {
+        case .vintageGreen: return Color(hex: "283828")  // Tertiary dark green
+        case .oceanBlue: return Color(hex: "1E2A3A")     // Tertiary dark blue
+        case .sunsetOrange: return Color(hex: "3A2820")  // Tertiary dark orange
+        case .rosewoodPink: return Color(hex: "3A222C")  // Tertiary dark pink
+        }
+    }
+
+    // MARK: - Dynamic Colors (used by ThemeManager based on appearance)
+
+    var background: Color { backgroundLight }
+    var cardBackground: Color { cardBackgroundLight }
+    var tertiaryBackground: Color { tertiaryBackgroundLight }
 
     var surface: Color {
         switch self {
@@ -162,6 +221,7 @@ class ThemeManager {
     static let shared = ThemeManager()
 
     private let themeKey = "selectedTheme"
+    private let appearanceKey = "appearanceMode"
 
     var currentTheme: ColorTheme {
         didSet {
@@ -169,25 +229,70 @@ class ThemeManager {
         }
     }
 
+    var appearanceMode: AppearanceMode {
+        didSet {
+            UserDefaults.standard.set(appearanceMode.rawValue, forKey: appearanceKey)
+        }
+    }
+
+    // Track system color scheme for dynamic updates
+    var systemColorScheme: ColorScheme = .light
+
     private init() {
+        // Load saved theme
         if let savedTheme = UserDefaults.standard.string(forKey: themeKey),
            let theme = ColorTheme(rawValue: savedTheme) {
             self.currentTheme = theme
         } else {
             self.currentTheme = .vintageGreen
         }
+
+        // Load saved appearance mode
+        if let savedMode = UserDefaults.standard.string(forKey: appearanceKey),
+           let mode = AppearanceMode(rawValue: savedMode) {
+            self.appearanceMode = mode
+        } else {
+            self.appearanceMode = .light
+        }
     }
 
-    // Convenience accessors
+    // Computed property to determine if we're in dark mode
+    var isDarkMode: Bool {
+        switch appearanceMode {
+        case .light:
+            return false
+        case .dark:
+            return true
+        case .system:
+            return systemColorScheme == .dark
+        }
+    }
+
+    // Convenience accessors - these stay the same (don't change with mode)
     var primary: Color { currentTheme.primary }
     var primaryLight: Color { currentTheme.primaryLight }
     var primaryDark: Color { currentTheme.primaryDark }
     var secondary: Color { currentTheme.secondary }
     var accent: Color { currentTheme.accent }
-    var background: Color { currentTheme.background }
-    var cardBackground: Color { currentTheme.cardBackground }
-    var tertiaryBackground: Color { currentTheme.tertiaryBackground }
     var surface: Color { currentTheme.surface }
+
+    // Dynamic background colors based on appearance mode
+    var background: Color {
+        isDarkMode ? currentTheme.backgroundDark : currentTheme.backgroundLight
+    }
+
+    var cardBackground: Color {
+        isDarkMode ? currentTheme.cardBackgroundDark : currentTheme.cardBackgroundLight
+    }
+
+    var tertiaryBackground: Color {
+        isDarkMode ? currentTheme.tertiaryBackgroundDark : currentTheme.tertiaryBackgroundLight
+    }
+
+    // Preferred color scheme for SwiftUI
+    var preferredColorScheme: ColorScheme? {
+        appearanceMode.colorScheme
+    }
 }
 
 // MARK: - Environment Key

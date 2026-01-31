@@ -82,7 +82,7 @@ struct StatsScreen: View {
                 .ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 20) {
                     // MARK: - Header
                     headerView
 
@@ -93,9 +93,10 @@ struct StatsScreen: View {
                     keyMetricsSection
 
                     Spacer()
-                        .frame(height: 20)
+                        .frame(height: 30)
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
         }
         .navigationBarHidden(true)
@@ -104,20 +105,37 @@ struct StatsScreen: View {
     // MARK: - Header View
 
     private var headerView: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(spacing: 6) {
+            // Title with compass icons
+            HStack(spacing: 12) {
+                Image(systemName: "safari.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(themeManager.accent)
+
                 Text("Your WanderStats")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundColor(themeManager.primary)
 
-                Text("Track your journey across America")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
+                Image(systemName: "safari.fill")
+                    .font(.system(size: 22))
+                    .foregroundColor(themeManager.accent)
             }
 
-            Spacer()
+            Text("Track your journey across America")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
         }
-        .padding(.top, 16)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(themeManager.cardBackground)
+                .shadow(color: .black.opacity(0.08), radius: 8, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(themeManager.primary.opacity(0.1), lineWidth: 1)
+        )
     }
 
     // MARK: - Progress Ring Card
@@ -126,65 +144,62 @@ struct StatsScreen: View {
         VStack(spacing: 20) {
             // Circular Progress Ring
             ZStack {
-                // Background ring
+                // Background ring (light gray)
                 Circle()
                     .stroke(
-                        themeManager.primary.opacity(0.15),
+                        Color.gray.opacity(0.2),
                         style: StrokeStyle(lineWidth: 16, lineCap: .round)
                     )
                     .frame(width: 180, height: 180)
 
-                // Progress ring
+                // Progress ring (solid theme color)
                 Circle()
                     .trim(from: 0, to: progressPercentage)
                     .stroke(
-                        AngularGradient(
-                            gradient: Gradient(colors: [
-                                themeManager.primaryLight,
-                                themeManager.primary,
-                                themeManager.primaryDark
-                            ]),
-                            center: .center,
-                            startAngle: .degrees(0),
-                            endAngle: .degrees(360)
-                        ),
+                        themeManager.primary,
                         style: StrokeStyle(lineWidth: 16, lineCap: .round)
                     )
                     .frame(width: 180, height: 180)
                     .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 1.0), value: progressPercentage)
+                    .animation(.easeInOut(duration: 0.8), value: progressPercentage)
 
                 // Center content
-                VStack(spacing: 4) {
+                VStack(spacing: 2) {
                     Text("\(statesVisited)")
                         .font(.system(size: 52, weight: .bold))
                         .foregroundColor(themeManager.primary)
 
                     Text("of 50")
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.secondary)
 
                     Text(percentageText)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(themeManager.secondary)
-                        .padding(.top, 2)
+                        .padding(.top, 4)
                 }
             }
-            .padding(.top, 8)
+            .padding(.top, 12)
 
             // Labels
-            VStack(spacing: 8) {
-                Text("States Explored")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.primary)
+            VStack(spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "map.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(themeManager.primary)
+                    Text("States Explored")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(themeManager.primary)
+                }
 
                 Text(motivationalText)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 20)
+                    .lineSpacing(3)
+                    .padding(.horizontal, 24)
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, 12)
         }
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
@@ -192,26 +207,37 @@ struct StatsScreen: View {
             RoundedRectangle(cornerRadius: 20)
                 .fill(themeManager.cardBackground)
         )
-        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(themeManager.primary.opacity(0.1), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.08), radius: 10, x: 0, y: 5)
     }
 
     // MARK: - Key Metrics Section
 
     private var keyMetricsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Key Metrics")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundColor(themeManager.primary)
-                .padding(.leading, 4)
+        VStack(alignment: .leading, spacing: 14) {
+            // Section header
+            HStack(spacing: 8) {
+                Image(systemName: "chart.bar.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(themeManager.accent)
+
+                Text("Key Metrics")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(themeManager.primary)
+            }
+            .padding(.leading, 4)
 
             // 2x2 Grid
             LazyVGrid(columns: [
-                GridItem(.flexible(), spacing: 12),
-                GridItem(.flexible(), spacing: 12)
-            ], spacing: 12) {
+                GridItem(.flexible(), spacing: 14),
+                GridItem(.flexible(), spacing: 14)
+            ], spacing: 14) {
                 // Total Photos
                 MetricCard(
-                    icon: "photo.fill",
+                    icon: "photo.on.rectangle.angled",
                     value: "\(totalPhotos)",
                     label: "Total Photos",
                     color: themeManager.primary,
@@ -220,7 +246,7 @@ struct StatsScreen: View {
 
                 // Days Tracking
                 MetricCard(
-                    icon: "calendar",
+                    icon: "calendar.badge.clock",
                     value: "\(daysTracking)",
                     label: "Days Tracking",
                     color: themeManager.secondary,
@@ -229,21 +255,21 @@ struct StatsScreen: View {
 
                 // With Journal
                 MetricCard(
-                    icon: "note.text",
+                    icon: "book.fill",
                     value: "\(photosWithJournal)",
-                    subtitle: journalPercentage,
+                    subtitle: "(\(journalPercentage))",
                     label: "With Journal",
                     color: themeManager.accent,
                     cardBackground: themeManager.cardBackground
                 )
 
-                // State with Most
+                // State with Most Photos
                 MetricCard(
                     icon: "star.fill",
                     value: stateWithMostPhotos?.code ?? "--",
                     subtitle: stateWithMostPhotos != nil ? "(\(stateWithMostPhotos!.count))" : "",
-                    label: "Most Visited",
-                    color: Color(hex: "FFC107"),
+                    label: "Most Photos",
+                    color: Color(hex: "F5A623"),
                     cardBackground: themeManager.cardBackground
                 )
             }
@@ -262,30 +288,32 @@ struct MetricCard: View {
     var cardBackground: Color = Color(UIColor.secondarySystemGroupedBackground)
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Icon
+        VStack(spacing: 10) {
+            // Icon in circle
             ZStack {
                 Circle()
-                    .fill(color.opacity(0.15))
-                    .frame(width: 44, height: 44)
+                    .fill(color.opacity(0.12))
+                    .frame(width: 48, height: 48)
 
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 22))
                     .foregroundColor(color)
             }
 
-            // Value
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            // Value with optional subtitle
+            HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundColor(.primary)
 
                 if let subtitle = subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundColor(color)
                 }
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
 
             // Label
             Text(label)
@@ -293,12 +321,17 @@ struct MetricCard: View {
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 20)
+        .padding(.vertical, 18)
+        .padding(.horizontal, 8)
         .background(
             RoundedRectangle(cornerRadius: 16)
                 .fill(cardBackground)
         )
-        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(color.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.06), radius: 6, x: 0, y: 3)
     }
 }
 

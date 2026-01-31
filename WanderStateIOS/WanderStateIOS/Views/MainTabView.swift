@@ -10,6 +10,7 @@ import SwiftUI
 struct MainTabView: View {
     @State private var navigationManager = NavigationManager.shared
     @State private var themeManager = ThemeManager.shared
+    @Environment(\.colorScheme) private var systemColorScheme
 
     var body: some View {
         TabView(selection: $navigationManager.selectedTab) {
@@ -38,6 +39,13 @@ struct MainTabView: View {
                 .tag(3)
         }
         .tint(themeManager.primary)
+        .preferredColorScheme(themeManager.preferredColorScheme)
+        .onChange(of: systemColorScheme) { _, newValue in
+            themeManager.systemColorScheme = newValue
+        }
+        .onAppear {
+            themeManager.systemColorScheme = systemColorScheme
+        }
     }
 }
 

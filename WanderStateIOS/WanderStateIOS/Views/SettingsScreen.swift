@@ -11,6 +11,7 @@ import SwiftData
 struct SettingsScreen: View {
     @State private var themeManager = ThemeManager.shared
     @Query private var photos: [PhotoEntity]
+    @Environment(\.modelContext) private var modelContext
 
     @State private var showClearDataAlert = false
     @State private var showExportSheet = false
@@ -67,10 +68,10 @@ struct SettingsScreen: View {
     // MARK: - App Logo Header
 
     private var appLogoHeader: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 14) {
             // App Icon
             ZStack {
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 22)
                     .fill(
                         LinearGradient(
                             colors: [themeManager.primaryLight, themeManager.primary],
@@ -78,24 +79,44 @@ struct SettingsScreen: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 80, height: 80)
-                    .shadow(color: themeManager.primary.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .frame(width: 76, height: 76)
+                    .shadow(color: themeManager.primary.opacity(0.3), radius: 10, x: 0, y: 5)
 
                 Image(systemName: "map.fill")
-                    .font(.system(size: 36))
+                    .font(.system(size: 34))
                     .foregroundColor(.white)
             }
 
-            Text("WanderState")
-                .font(.system(size: 24, weight: .bold))
-                .foregroundColor(themeManager.primary)
+            // Title with compass icons
+            HStack(spacing: 10) {
+                Image(systemName: "safari.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(themeManager.accent)
 
-            Text("Settings")
-                .font(.system(size: 14, weight: .medium))
+                Text("Settings")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(themeManager.primary)
+
+                Image(systemName: "safari.fill")
+                    .font(.system(size: 18))
+                    .foregroundColor(themeManager.accent)
+            }
+
+            Text("Customize your WanderState experience")
+                .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(themeManager.cardBackground)
+                .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 4)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(themeManager.primary.opacity(0.1), lineWidth: 1)
+        )
     }
 
     // MARK: - Theme Section
@@ -103,16 +124,61 @@ struct SettingsScreen: View {
     private var themeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Section Header
-            HStack {
+            HStack(spacing: 6) {
                 Image(systemName: "paintpalette.fill")
-                    .font(.system(size: 16))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(themeManager.primary)
 
-                Text("Color Theme")
-                    .font(.system(size: 16, weight: .bold))
+                Text("APPEARANCE")
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(themeManager.primary)
             }
             .padding(.horizontal, 4)
+
+            // Light/Dark Mode Picker
+            VStack(spacing: 0) {
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(themeManager.accent.opacity(0.15))
+                            .frame(width: 36, height: 36)
+
+                        Image(systemName: themeManager.appearanceMode.icon)
+                            .font(.system(size: 16))
+                            .foregroundColor(themeManager.accent)
+                    }
+
+                    Text("Display Mode")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.primary)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
+                // Segmented picker
+                Picker("Appearance", selection: $themeManager.appearanceMode) {
+                    ForEach(AppearanceMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(themeManager.tertiaryBackground)
+            )
+
+            // Color Theme label
+            Text("Color Theme")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 4)
+                .padding(.top, 4)
 
             // Theme Cards
             VStack(spacing: 8) {
@@ -142,13 +208,13 @@ struct SettingsScreen: View {
     private var dataManagementSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Section Header
-            HStack {
+            HStack(spacing: 6) {
                 Image(systemName: "externaldrive.fill")
-                    .font(.system(size: 16))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(themeManager.secondary)
 
-                Text("Data Management")
-                    .font(.system(size: 16, weight: .bold))
+                Text("DATA MANAGEMENT")
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(themeManager.secondary)
             }
             .padding(.horizontal, 4)
@@ -233,13 +299,13 @@ struct SettingsScreen: View {
     private var aboutSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Section Header
-            HStack {
+            HStack(spacing: 6) {
                 Image(systemName: "info.circle.fill")
-                    .font(.system(size: 16))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(themeManager.accent)
 
-                Text("About")
-                    .font(.system(size: 16, weight: .bold))
+                Text("ABOUT")
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundColor(themeManager.accent)
             }
             .padding(.horizontal, 4)
@@ -317,11 +383,20 @@ struct SettingsScreen: View {
     }
 
     private func clearAllData() {
+        // Delete all photo entities from SwiftData
+        for photo in photos {
+            modelContext.delete(photo)
+        }
+
+        // Clear the Photos directory on disk
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let photosPath = documentsPath.appendingPathComponent("Photos")
 
         try? FileManager.default.removeItem(at: photosPath)
         try? FileManager.default.createDirectory(at: photosPath, withIntermediateDirectories: true)
+
+        // Save the context
+        try? modelContext.save()
     }
 }
 
